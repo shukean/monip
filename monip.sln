@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "monip", "monip.vcproj", "{DF143A6A-F7F3-4496-8C91-089A7AADEC9C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug_TS|Win32 = Debug_TS|Win32
+		Release_TS|Win32 = Release_TS|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DF143A6A-F7F3-4496-8C91-089A7AADEC9C}.Debug_TS|Win32.ActiveCfg = Debug_TS|Win32
+		{DF143A6A-F7F3-4496-8C91-089A7AADEC9C}.Debug_TS|Win32.Build.0 = Debug_TS|Win32
+		{DF143A6A-F7F3-4496-8C91-089A7AADEC9C}.Release_TS|Win32.ActiveCfg = Release_TS|Win32
+		{DF143A6A-F7F3-4496-8C91-089A7AADEC9C}.Release_TS|Win32.Build.0 = Release_TS|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
