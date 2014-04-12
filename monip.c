@@ -260,11 +260,9 @@ PHP_FUNCTION(monip_init){
 	int offset;
 	php_monip_data *monip;
 	zend_rsrc_list_entry le;
-	zend_rsrc_list_entry *_le;
 
-	//return if exist 
-	if(zend_hash_find(&EG(persistent_list), ZEND_STRS(MONIP_HASH_KEY_NAME), (void **)&_le) == SUCCESS){
-		RETURN_TRUE;
+	if(zend_hash_exists(&EG(persistent_list), ZEND_STRS(MONIP_HASH_KEY_NAME))){
+		RETURN_LONG(8);
 	}
 
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &fip, &fip_len) == FAILURE){
