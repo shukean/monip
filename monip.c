@@ -262,7 +262,7 @@ PHP_FUNCTION(monip_init){
 	zend_rsrc_list_entry le;
 
 	if(zend_hash_exists(&EG(persistent_list), ZEND_STRS(MONIP_HASH_KEY_NAME))){
-		RETURN_LONG(8);
+		RETURN_TRUE;
 	}
 
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &fip, &fip_len) == FAILURE){
@@ -329,7 +329,7 @@ PHP_FUNCTION(monip_find){
 	char *ip_str_tok, *ipdot, *ip, *nip;
 	uint tmp_offset;
 	uint start, max_comp_len, index_offset = 0;
-	char index_length; 
+	unsigned char index_length; 
 	char *ip_addr;
 	zval *ip_cache, **pp_cache;
 
