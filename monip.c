@@ -282,6 +282,7 @@ PHP_FUNCTION(monip_init){
 	//php_printf("%d\n", offset);
 	monip = pemalloc(sizeof(php_monip_data), 1);
 	if(!monip){
+		php_stream_pclose(monip->stream);
 		RETURN_FALSE;
 	}
 
@@ -300,7 +301,7 @@ PHP_FUNCTION(monip_init){
 
 	if(zend_hash_update(&EG(persistent_list), MONIP_HASH_KEY_NAME, sizeof(MONIP_HASH_KEY_NAME), (void *)&le, sizeof(zend_rsrc_list_entry), NULL) == FAILURE){
 		pefree(monip->index, 1);
-		php_stream_close(monip->stream);
+		php_stream_pclose(monip->stream);
 		pefree(monip->stream, 1);
 		zend_hash_destroy(monip->cache);
 		pefree(monip->cache, 1);
