@@ -430,13 +430,10 @@ PHP_FUNCTION(monip_find){
 /** {{{ void public monip_init(string path)
 */
 PHP_FUNCTION(monip_clear){
-	zend_rsrc_list_entry *le;
 
-	if(zend_hash_find(&EG(persistent_list), ZEND_STRS(MONIP_HASH_KEY_NAME), (void **)&le) == FAILURE){
-		RETURN_FALSE;
+	if(zend_hash_exists(&EG(persistent_list), ZEND_STRS(MONIP_HASH_KEY_NAME))){
+		zend_hash_del(&EG(persistent_list), MONIP_HASH_KEY_NAME, sizeof(MONIP_HASH_KEY_NAME));
 	}
-
-	zend_hash_del(&EG(persistent_list), MONIP_HASH_KEY_NAME, sizeof(MONIP_HASH_KEY_NAME));
 	RETURN_TRUE;
 }
 /* }}} *
