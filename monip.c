@@ -305,6 +305,7 @@ PHP_FUNCTION(monip_init){
 	//php_printf("%d\n", offset);
 	monip = (php_monip_data *)pemalloc(sizeof(php_monip_data), 1);
 	if(!monip){
+		php_stream_pclose(monip->stream);
 		RETURN_FALSE;
 	}
 
@@ -452,6 +453,7 @@ PHP_FUNCTION(monip_find){
 /** {{{ void public monip_init(string path)
 */
 PHP_FUNCTION(monip_clear){
+<<<<<<< HEAD
 	zend_rsrc_list_entry *le;
 	if (zend_hash_find(&EG(persistent_list), MONIP_HASH_KEY_NAME, sizeof(MONIP_HASH_KEY_NAME), (void **)&le) == SUCCESS){
 		if(le->type == le_monip_persistent){
@@ -462,6 +464,13 @@ PHP_FUNCTION(monip_clear){
 	}
 
 	RETURN_NULL();
+=======
+
+	if(zend_hash_exists(&EG(persistent_list), ZEND_STRS(MONIP_HASH_KEY_NAME))){
+		zend_hash_del(&EG(persistent_list), MONIP_HASH_KEY_NAME, sizeof(MONIP_HASH_KEY_NAME));
+	}
+	RETURN_TRUE;
+>>>>>>> d300504187e632f28cf58489efda3359761594cf
 }
 /* }}} *
 
