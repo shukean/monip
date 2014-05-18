@@ -46,10 +46,22 @@ ZEND_DECLARE_MODULE_GLOBALS(monip)
 */
 
 /* True global resources - no need for thread safety here */
-static int le_monip_persist;
+static int le_monip_persistent;
 
 /* Whether machine is little endian */
 char machine_little_endian;
+
+ZEND_BEGIN_ARG_INFO(arginfo_monip_init, ZEND_SEND_BY_VAL)
+	ZEND_ARG_INFO(0, fip)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO(arginfo_monip_find, ZEND_SEND_BY_VAL)
+	ZEND_ARG_INFO(0, ip_str)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO(arginfo_monip_clear, ZEND_SEND_BY_VAL)
+ZEND_END_ARG_INFO()
+
 
 static int lb_reverse(int a){
 	union {
@@ -66,14 +78,34 @@ static int lb_reverse(int a){
 	return r.i;
 }
 
+static char *monip_gethostbyname(char *name)
+{
+	struct hostent *hp;
+	struct in_addr in;
+
+	hp = gethostbyname(name);
+
+	if (!hp || !*(hp->h_addr_list)) {
+		return estrdup(name);
+	}
+
+	if(hp->h_addrtype != AF_INET){
+		return estrdup(name);		
+	}
+
+	memcpy(&in.s_addr, *(hp->h_addr_list), sizeof(in.s_addr));
+
+	return estrdup(inet_ntoa(in));
+}
+
 /* {{{ monip_functions[]
  *
  * Every user visible function must have an entry in monip_functions[].
  */
 const zend_function_entry monip_functions[] = {
-	PHP_FE(monip_init, NULL)
-	PHP_FE(monip_find, NULL)
-	PHP_FE(monip_clear, NULL)
+	PHP_FE(monip_init, arginfo_monip_init)
+	PHP_FE(monip_find, arginfo_monip_find)
+	PHP_FE(monip_clear, arginfo_monip_clear)
 	PHP_FE_END	/* Must be the last line in monip_functions[] */
 };
 /* }}} */
@@ -126,13 +158,11 @@ static void php_monip_init_globals(zend_monip_globals *monip_globals)
 
 /**	 free le_monip_persist
 */
-static void monip_data_dtor_persistent(zend_rsrc_list_entry *rsrc TSRMLS_DC)
+ZEND_RSRC_DTOR_FUNC(php_monip_dtor)
 {
 	php_monip_data *rs = (php_monip_data *)rsrc->ptr;
-	//pefree some rc
 	pefree(rs->index, 1);
 	php_stream_pclose(rs->stream);
-	pefree(rs->stream, 1);
 	zend_hash_destroy(rs->cache);
 	pefree(rs->cache, 1);
 	pefree(rs, 1);
@@ -144,21 +174,9 @@ static void monip_data_dtor_persistent(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 */
 static void monip_cache_dtor(zval **value){
 	if(*value){
-		switch(Z_TYPE_PP(value)){
-			case IS_STRING:
-			case IS_CONSTANT:
-				CHECK_ZVAL_STRING(*value);
-				pefree(Z_STRVAL_PP(value), 1);
-				pefree(*value, 1);
-				break;
-			case IS_ARRAY:
-			case IS_CONSTANT_ARRAY: {
-				zend_hash_destroy(Z_ARRVAL_PP(value));
-				pefree(Z_ARRVAL_PP(value), 1);
-				pefree(*value, 1);
-			}
-			break;
-		}
+		CHECK_ZVAL_STRING(*value);
+		pefree(Z_STRVAL_PP(value), 1);
+		pefree(*value, 1);
 	}
 }
 /* }}} */
@@ -173,7 +191,7 @@ static void monip_split(zval *return_value, char *str, uint str_len TSRMLS_DC){
 
 	endp = str + str_len;		//end of ip_addr
 	p1 = str;
-	p2 = zend_memnstr(p1, ZEND_STRL("\t"), endp);
+	p2 = php_memnstr(p1, ZEND_STRL("\t"), endp);
 
 	if(p2 == NULL){
 		add_next_index_stringl(return_value, p1, str_len, 1);
@@ -201,7 +219,7 @@ PHP_MINIT_FUNCTION(monip)
 	int machine_endian_check = 1;
 	machine_little_endian = ((char *)&machine_endian_check)[0];
 
-	le_monip_persist = zend_register_list_destructors_ex(NULL, monip_data_dtor_persistent, MONIP_DATA_RES_NAME, module_number);
+	le_monip_persistent = zend_register_list_destructors_ex(NULL, php_monip_dtor, MONIP_DATA_RES_NAME, module_number);
 
 	return SUCCESS;
 }
@@ -214,6 +232,9 @@ PHP_MSHUTDOWN_FUNCTION(monip)
 	/* uncomment this line if you have INI entries
 	UNREGISTER_INI_ENTRIES();
 	*/
+	//if(zend_hash_exists(&EG(persistent_list), ZEND_STRS(MONIP_HASH_KEY_NAME))){
+		//zend_hash_del(&EG(persistent_list), MONIP_HASH_KEY_NAME, sizeof(MONIP_HASH_KEY_NAME));
+	//}
 	return SUCCESS;
 }
 /* }}} */
@@ -261,51 +282,52 @@ PHP_FUNCTION(monip_init){
 	php_monip_data *monip;
 	zend_rsrc_list_entry le;
 
-	if(zend_hash_exists(&EG(persistent_list), ZEND_STRS(MONIP_HASH_KEY_NAME))){
-		RETURN_TRUE;
-	}
-
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &fip, &fip_len) == FAILURE){
 		RETURN_FALSE;
 	}
+	
+	if(zend_hash_exists(&EG(persistent_list), ZEND_STRS(MONIP_HASH_KEY_NAME))){
+		RETURN_NULL();
+	}
 
+	
 	stream = php_stream_open_wrapper(fip, "rb", ENFORCE_SAFE_MODE | STREAM_OPEN_PERSISTENT | REPORT_ERRORS, NULL);
 	if(!stream){
 		RETURN_FALSE;
 	}
 	
+	php_stream_rewind(stream);
 	php_stream_read(stream, (char *)&offset, 4);
 	if(machine_little_endian){
 		offset = lb_reverse(offset);
 	}
 
 	//php_printf("%d\n", offset);
-	monip = pemalloc(sizeof(php_monip_data), 1);
+	monip = (php_monip_data *)pemalloc(sizeof(php_monip_data), 1);
 	if(!monip){
 		RETURN_FALSE;
 	}
 
 	monip->offset = offset; 
 	monip->index_len = offset - 4;
-	monip->index = pemalloc(sizeof(char)*monip->index_len + 1, 1);
+	monip->index = (char *)pemalloc(sizeof(char)*monip->index_len + 1, 1);
 	monip->stream = stream;
 	//hashtable
 	monip->cache = (HashTable *) pemalloc(sizeof(HashTable), 1);
 	zend_hash_init(monip->cache, 16, NULL, (dtor_func_t)monip_cache_dtor, 1);
-
+	
 	php_stream_read(stream, monip->index, monip->index_len);
 
-	le.type = le_monip_persist;
+	le.type = le_monip_persistent;
 	le.ptr = monip;
 
-	if(zend_hash_update(&EG(persistent_list), MONIP_HASH_KEY_NAME, sizeof(MONIP_HASH_KEY_NAME), (void *)&le, sizeof(zend_rsrc_list_entry), NULL) == FAILURE){
+	if(zend_hash_update(&EG(persistent_list), MONIP_HASH_KEY_NAME, sizeof(MONIP_HASH_KEY_NAME), (void *)&le, sizeof(le), NULL) == FAILURE){
 		pefree(monip->index, 1);
-		php_stream_close(monip->stream);
+		php_stream_pclose(monip->stream);
 		pefree(monip->stream, 1);
 		zend_hash_destroy(monip->cache);
 		pefree(monip->cache, 1);
 		pefree(monip, 1);
-
 		RETURN_FALSE;
 	}
 	RETURN_TRUE;
@@ -313,7 +335,7 @@ PHP_FUNCTION(monip_init){
 /* }}} *
 
 
-/** {{{ void public monip_init(string path)
+/** {{{ void public monip_find(string path)
 */
 PHP_FUNCTION(monip_find){
 	char *ip_str;
@@ -342,11 +364,12 @@ PHP_FUNCTION(monip_find){
 		RETURN_STRING("N/A", 1);
 	}
 
+	ip_str = monip_gethostbyname(ip_str);
+
 	monip = (php_monip_data *)le->ptr;
 
 	//cache exist
 	if(zend_hash_find(monip->cache, ip_str, ip_str_len + 1, (void **)&pp_cache) == SUCCESS){
-
 		monip_split(return_value, Z_STRVAL_PP(pp_cache), Z_STRLEN_PP(pp_cache) TSRMLS_CC);
 		return;
 	}
@@ -402,7 +425,7 @@ PHP_FUNCTION(monip_find){
 		RETURN_STRING("N/A", 1);
 	}
 
-	ip_addr = emalloc(sizeof(char) * index_length + 1);			//free ip_addr
+	ip_addr = (char *)emalloc(sizeof(char) * index_length + 1);			//free ip_addr
 	php_stream_read(monip->stream, ip_addr, index_length);
 	ip_addr[index_length] = 0;
 
@@ -430,13 +453,15 @@ PHP_FUNCTION(monip_find){
 */
 PHP_FUNCTION(monip_clear){
 	zend_rsrc_list_entry *le;
-
-	if(zend_hash_find(&EG(persistent_list), ZEND_STRS(MONIP_HASH_KEY_NAME), (void **)&le) == FAILURE){
-		RETURN_FALSE;
+	if (zend_hash_find(&EG(persistent_list), MONIP_HASH_KEY_NAME, sizeof(MONIP_HASH_KEY_NAME), (void **)&le) == SUCCESS){
+		if(le->type == le_monip_persistent){
+			php_monip_data *monip = (php_monip_data *)le->ptr;
+			zend_hash_clean(monip->cache);
+			RETURN_TRUE;
+		}
 	}
 
-	zend_hash_del(&EG(persistent_list), MONIP_HASH_KEY_NAME, sizeof(MONIP_HASH_KEY_NAME));
-	RETURN_TRUE;
+	RETURN_NULL();
 }
 /* }}} *
 

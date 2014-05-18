@@ -48,8 +48,8 @@ PHP_FUNCTION(monip_init);
 PHP_FUNCTION(monip_find);
 PHP_FUNCTION(monip_clear);
 
-#define MONIP_DATA_RES_NAME "mon17.ip"
-#define MONIP_HASH_KEY_NAME "mon17.ip.descriptor"
+#define MONIP_DATA_RES_NAME "mon17_ip"
+#define MONIP_HASH_KEY_NAME "mon17_ip_hash_key"
 
 typedef struct _php_monip_data{
 	char *index;		//索引的数据
