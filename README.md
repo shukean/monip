@@ -7,7 +7,7 @@ monip
 ./configure --with-php-config=/path/to/php-config
 make && make install
 
-#方法：
+#方法
 bool monip_init(string file);
 file为17monipdb.dat的文件路径,返回false表示失败，true表示初始化成功，NULL表示不需要再次初始化。
 
