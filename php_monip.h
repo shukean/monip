@@ -57,7 +57,7 @@ typedef struct _php_monip_data{
 	ulong offset;
 	php_stream *stream;	//文件流
 	HashTable *cache;	//缓存数据
-
+	char *filename;		//当前文件名
 } php_monip_data;
 
 

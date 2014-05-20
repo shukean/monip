@@ -165,6 +165,7 @@ ZEND_RSRC_DTOR_FUNC(php_monip_dtor)
 	php_stream_pclose(rs->stream);
 	zend_hash_destroy(rs->cache);
 	pefree(rs->cache, 1);
+	pefree(rs->filename, 1);
 	pefree(rs, 1);
 }
 /* }}} */
@@ -278,58 +279,73 @@ PHP_FUNCTION(monip_init){
 	char *fip;
 	uint fip_len;
 	php_stream *stream;
-	int offset;
+	int offset = 0, is_init = 0;
 	php_monip_data *monip;
-	zend_rsrc_list_entry le;
+	zend_rsrc_list_entry *ple;
 
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &fip, &fip_len) == FAILURE){
 		RETURN_FALSE;
 	}
-	
-	if(zend_hash_exists(&EG(persistent_list), ZEND_STRS(MONIP_HASH_KEY_NAME))){
-		RETURN_NULL();
+
+	if (zend_hash_find(&EG(persistent_list), MONIP_HASH_KEY_NAME, sizeof(MONIP_HASH_KEY_NAME), (void **)&ple) == SUCCESS){
+		monip = (php_monip_data *)ple->ptr;
+		if(strcmp(fip, monip->filename) == 0){
+			RETURN_NULL();
+		}else{
+			pefree(monip->index, 1);
+			php_stream_pclose(monip->stream);
+			zend_hash_clean(monip->cache);
+			pefree(monip->filename, 1);
+		}
+	}else{
+		is_init = 1;
+		monip = (php_monip_data *)pemalloc(sizeof(php_monip_data), 1);
+		if(!monip){
+			RETURN_FALSE;
+		}
+		monip->cache = (HashTable *) pemalloc(sizeof(HashTable), 1);
+		zend_hash_init(monip->cache, 16, NULL, (dtor_func_t)monip_cache_dtor, 1);
 	}
 
-	
 	stream = php_stream_open_wrapper(fip, "rb", ENFORCE_SAFE_MODE | STREAM_OPEN_PERSISTENT | REPORT_ERRORS, NULL);
 	if(!stream){
+		if (is_init == 1){
+			pefree(monip, 1);
+			zend_hash_destroy(monip->cache);
+			pefree(monip->cache, 1);
+		}
 		RETURN_FALSE;
 	}
-	
+
 	php_stream_rewind(stream);
 	php_stream_read(stream, (char *)&offset, 4);
 	if(machine_little_endian){
 		offset = lb_reverse(offset);
 	}
 
-	//php_printf("%d\n", offset);
-	monip = (php_monip_data *)pemalloc(sizeof(php_monip_data), 1);
-	if(!monip){
-		RETURN_FALSE;
-	}
-
+	monip->filename = pestrndup(fip, fip_len, 1);
 	monip->offset = offset; 
 	monip->index_len = offset - 4;
 	monip->index = (char *)pemalloc(sizeof(char)*monip->index_len + 1, 1);
 	monip->stream = stream;
-	//hashtable
-	monip->cache = (HashTable *) pemalloc(sizeof(HashTable), 1);
-	zend_hash_init(monip->cache, 16, NULL, (dtor_func_t)monip_cache_dtor, 1);
-	
 	php_stream_read(stream, monip->index, monip->index_len);
 
-	le.type = le_monip_persistent;
-	le.ptr = monip;
+	if(is_init == 1){
+		zend_rsrc_list_entry le;
+		le.type = le_monip_persistent;
+		le.ptr = monip;
 
-	if(zend_hash_update(&EG(persistent_list), MONIP_HASH_KEY_NAME, sizeof(MONIP_HASH_KEY_NAME), (void *)&le, sizeof(le), NULL) == FAILURE){
-		pefree(monip->index, 1);
-		php_stream_pclose(monip->stream);
-		pefree(monip->stream, 1);
-		zend_hash_destroy(monip->cache);
-		pefree(monip->cache, 1);
-		pefree(monip, 1);
-		RETURN_FALSE;
+		if(zend_hash_update(&EG(persistent_list), MONIP_HASH_KEY_NAME, sizeof(MONIP_HASH_KEY_NAME), (void *)&le, sizeof(le), NULL) == FAILURE){
+			pefree(monip->index, 1);
+			php_stream_pclose(monip->stream);
+			pefree(monip->stream, 1);
+			zend_hash_destroy(monip->cache);
+			pefree(monip->cache, 1);
+			pefree(monip, 1);
+			RETURN_FALSE;
+		}
 	}
+	
 	RETURN_TRUE;
 }
 /* }}} *
