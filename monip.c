@@ -469,10 +469,20 @@ PHP_FUNCTION(monip_find){
 */
 PHP_FUNCTION(monip_clear){
 	zend_rsrc_list_entry *le;
+	zend_bool clear = 0;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|b", &clear) == FAILURE){
+		return;
+	}
+
 	if (zend_hash_find(&EG(persistent_list), MONIP_HASH_KEY_NAME, sizeof(MONIP_HASH_KEY_NAME), (void **)&le) == SUCCESS){
 		if(le->type == le_monip_persistent){
 			php_monip_data *monip = (php_monip_data *)le->ptr;
 			zend_hash_clean(monip->cache);
+
+			if(clear) {
+				zend_hash_del(&EG(persistent_list), MONIP_HASH_KEY_NAME, sizeof(MONIP_HASH_KEY_NAME));
+			}
 			RETURN_TRUE;
 		}
 	}
