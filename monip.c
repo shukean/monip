@@ -424,7 +424,7 @@ PHP_FUNCTION(monip_find){
 
 		if(memcmp(monip->index + start, nip, 4) >= 0){
 			memcpy(&index_offset, monip->index + start + 4, 3);
-			memcpy(&index_offset + 3, "\x0", 1);
+			//memcpy(&index_offset + 3, '\x0', 1);  //mac error
 			if(!machine_little_endian){
 				index_offset = lb_reverse(index_offset);
 			}
