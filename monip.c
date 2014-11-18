@@ -386,17 +386,20 @@ PHP_FUNCTION(monip_find){
 
 	//cache exist
 	if(zend_hash_find(monip->cache, ip_str, ip_str_len + 1, (void **)&pp_cache) == SUCCESS){
+		efree(ip_str);
 		monip_split(return_value, Z_STRVAL_PP(pp_cache), Z_STRLEN_PP(pp_cache) TSRMLS_CC);
 		return;
 	}
 
 #ifdef HAVE_INET_PTON
 	if(ip_str_len == 0 || inet_pton(AF_INET, ip_str, &uip) != 1){
+		efree(ip_str);
 		RETURN_STRING("N/A", 1);
 	}
 	lgip = ntohl(uip.s_addr);
 #else
 	if (ip_str_len == 0 || (uip = inet_addr(ip_str)) == INADDR_NONE) {
+		efree(ip_str);
 		RETURN_STRING("N/A", 1);
 	}
 	lgip = ntohl(uip);
@@ -434,10 +437,12 @@ PHP_FUNCTION(monip_find){
 	}
 
 	if(index_offset < 1){
+		efree(ip_str);
 		RETURN_STRING("N/A", 1);
 	}
 
 	if(php_stream_seek(monip->stream, monip->offset + index_offset - 1024, SEEK_SET) == FAILURE){
+		efree(ip_str);
 		RETURN_STRING("N/A", 1);
 	}
 
@@ -456,6 +461,7 @@ PHP_FUNCTION(monip_find){
 
 	//add cache
 	if(zend_hash_add(monip->cache, ip_str, ip_str_len + 1, &ip_cache, sizeof(zval *), NULL) == FAILURE){
+		efree(ip_str);
 		RETURN_STRING("N/A", 1);
 	}
 	efree(ip_str);
