@@ -458,6 +458,7 @@ PHP_FUNCTION(monip_find){
 	if(zend_hash_add(monip->cache, ip_str, ip_str_len + 1, &ip_cache, sizeof(zval *), NULL) == FAILURE){
 		RETURN_STRING("N/A", 1);
 	}
+	efree(ip_str);
 
 	return;
 
