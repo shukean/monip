@@ -375,6 +375,7 @@ PHP_METHOD(monip_ce, find){
     if (zend_hash_index_find(Z_ARRVAL_P(cache), ip_h, (void **)&cache_val) == SUCCESS) {
         //php_printf("\ncahce find, type %d\n", Z_TYPE_PP(cache_val));
         monip_split(return_value, Z_STRVAL_PP(cache_val), Z_STRLEN_PP(cache_val) TSRMLS_CC);
+        efree(ip);
         return;
     }
     
