@@ -2,7 +2,7 @@
 $br = (php_sapi_name() == "cli")? "":"<br>";
 
 if(!extension_loaded('monip')) {
-	dl('php_monip.' . PHP_SHLIB_SUFFIX);
+	dl('monip.' . PHP_SHLIB_SUFFIX);
 }
 $module = 'monip';
 $functions = get_extension_funcs($module);

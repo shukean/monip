@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2013 The PHP Group                                |
+  | Copyright (c) 1997-2014 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,7 @@
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
   +----------------------------------------------------------------------+
-  | Author: yukeyong                                                     |
+  | Author:                                                              |
   +----------------------------------------------------------------------+
 */
 
@@ -44,21 +44,11 @@ PHP_RINIT_FUNCTION(monip);
 PHP_RSHUTDOWN_FUNCTION(monip);
 PHP_MINFO_FUNCTION(monip);
 
-PHP_FUNCTION(monip_init);
-PHP_FUNCTION(monip_find);
-PHP_FUNCTION(monip_clear);
+extern zend_class_entry *monip_ce;
 
-#define MONIP_DATA_RES_NAME "mon17_ip"
-#define MONIP_HASH_KEY_NAME "mon17_ip_hash_key"
-
-typedef struct _php_monip_data{
-	char *index;		//索引的数据
-	ulong index_len;	//索引的长度
-	ulong offset;
-	php_stream *stream;	//文件流
-	HashTable *cache;	//缓存数据
-	char *filename;		//当前文件名
-} php_monip_data;
+PHP_METHOD(monip_ce, __construct);
+PHP_METHOD(monip_ce, __destruct);
+PHP_METHOD(monip_ce, find);
 
 
 /* 
