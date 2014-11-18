@@ -247,6 +247,7 @@ PHP_METHOD(monip_ce, __construct){
     char *index;
     zval *zindex;
     zval *stream;
+    zval *cache;
     php_stream *f_stream;
     
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &ip_file, &ip_file_len) == FAILURE) {
@@ -282,13 +283,18 @@ PHP_METHOD(monip_ce, __construct){
     MAKE_STD_ZVAL(zindex);
     ZVAL_STRINGL(zindex, index, index_len, 1);
     
+    MAKE_STD_ZVAL(cache);
+    array_init(cache);
+    
     add_property_long(getThis(), "offset", offset);
     add_property_zval_ex(getThis(), ZEND_STRS("index"), zindex TSRMLS_CC);
     add_property_zval_ex(getThis(), ZEND_STRS("stream"), stream TSRMLS_CC);
+    add_property_zval_ex(getThis(), ZEND_STRS("cache"), cache TSRMLS_CC);
     
     efree(index);
     zval_ptr_dtor(&stream);
     zval_ptr_dtor(&zindex);
+    zval_ptr_dtor(&cache);
     
 }
 
@@ -320,7 +326,7 @@ PHP_METHOD(monip_ce, find){
     struct in_addr in;
     uint ip_h;
     
-    zval *p;
+    zval *p, *cache, **cache_val;
     ulong offset;
     char *index;
     php_stream *stream;
@@ -351,6 +357,8 @@ PHP_METHOD(monip_ce, find){
     p = zend_read_property(monip_ce, getThis(), ZEND_STRL("stream"), 0 TSRMLS_CC);
     php_stream_from_zval(stream, &p);
     
+    cache = zend_read_property(monip_ce, getThis(), ZEND_STRL("cache"), 0 TSRMLS_CC);
+    
     ip = monip_gethostbyname(ipstr);
     ip_len = (uint)strlen(ip);
     //php_printf("\n%s\n", ip);
@@ -362,6 +370,12 @@ PHP_METHOD(monip_ce, find){
     ip_h = ntohl(in.s_addr);
     if(machine_little_endian){
         ip_h = lb_reverse(ip_h);
+    }
+    
+    if (zend_hash_index_find(Z_ARRVAL_P(cache), ip_h, (void **)&cache_val) == SUCCESS) {
+        //php_printf("\ncahce find, type %d\n", Z_TYPE_PP(cache_val));
+        monip_split(return_value, Z_STRVAL_PP(cache_val), Z_STRLEN_PP(cache_val) TSRMLS_CC);
+        return;
     }
     
     ip_repeat = estrndup(ip, ip_len);
@@ -399,6 +413,10 @@ PHP_METHOD(monip_ce, find){
     location = (char *) emalloc(sizeof(char) * index_length + 1);
     php_stream_read(stream, location, index_length);
     location[index_length] = 0;
+    
+    MAKE_STD_ZVAL(p);
+    ZVAL_STRINGL(p, location, index_length, 1);
+    zend_hash_index_update(Z_ARRVAL_P(cache), ip_h, &p, sizeof(zval *), NULL);
     
     monip_split(return_value, location, index_length TSRMLS_CC);
     
