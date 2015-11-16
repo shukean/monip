@@ -5,7 +5,12 @@ monip
 
 采用了monip内置类支持IP与位置的对应.  
 
-例:  
+#install
+git clone https://github.com/shukean/monip.git  
+./configue --with-php-config=your_php_config_path  
+make && make install  
+
+#demo
 
 $monip = new monip('ip_data_file');  
 $location = $monip->find('www.baidu.com');  
