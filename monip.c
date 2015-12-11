@@ -256,7 +256,7 @@ PHP_METHOD(monip_ce, __construct){
     
     f_stream = php_stream_open_wrapper(ip_file, "rb", USE_PATH | REPORT_ERRORS, NULL);
     if (!f_stream) {
-        php_error(E_NOTICE, "Invalid 17monipdb.dat file!");
+        php_error(E_ERROR, "Invalid 17monipdb.dat file!");
         RETURN_FALSE;
     }
     
@@ -335,7 +335,7 @@ PHP_METHOD(monip_ce, find){
     char *ip_dot;
     
     int tmp_offset = 0, start = 0;
-    uint index_offset = 0, index_length = 0, max_comp_len = 0;
+    uint index_offset = 0, index_length = 0, max_comp_len = 0, is_offset = 0;
     
     char *location;
     
@@ -391,7 +391,9 @@ PHP_METHOD(monip_ce, find){
     }
     tmp_offset *= 4;
     
-    max_comp_len = (uint)offset - 1024;
+    memcpy((void *)&start, (void *)index + tmp_offset, 4);
+    
+    max_comp_len = (uint)offset - 1024 - 4;
     
     for(start = start * 8 + 1024; start < max_comp_len; start += 8){
         
@@ -401,11 +403,12 @@ PHP_METHOD(monip_ce, find){
                 index_offset = lb_reverse(index_offset);
             }
             index_length = *(index + start + 7);
+            is_offset = 1;
             break;
         }
     }
     
-    if (index_offset < 1) {
+    if (!is_offset) {
         RETURN_NULL();
     }
     
