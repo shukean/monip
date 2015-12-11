@@ -24,7 +24,7 @@
 extern zend_module_entry monip_module_entry;
 #define phpext_monip_ptr &monip_module_entry
 
-#define PHP_MONIP_VERSION "0.1.1" /* Replace with version number for your extension */
+#define PHP_MONIP_VERSION "0.1.0" /* Replace with version number for your extension */
 
 #ifdef PHP_WIN32
 #	define PHP_MONIP_API __declspec(dllexport)
@@ -37,15 +37,6 @@ extern zend_module_entry monip_module_entry;
 #ifdef ZTS
 #include "TSRM.h"
 #endif
-
-#define MOINIP_DEBUG 1
-
-
-#define IP_PRO_NAME_OFFSET "offset"
-#define IP_PRO_NAME_INDEX "index"
-#define IP_PRO_NAME_STREAM "stream"
-#define IP_PRO_NAME_CACHE "cache"
-
 
 PHP_MINIT_FUNCTION(monip);
 PHP_MSHUTDOWN_FUNCTION(monip);
