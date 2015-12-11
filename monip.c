@@ -84,28 +84,56 @@ static uint lb_reverse(uint a){
     return r.i;
 }
 
+static long monip_ip2long(zend_string *addr){
+    size_t addr_len;
+#ifdef HAVE_INET_PTON
+    struct in_addr ip;
+#else
+    zend_ulong ip;
+#endif
 
-static char *monip_gethostbyname(char *name)
+#ifdef HAVE_INET_PTON
+    if (ZSTR_LEN(addr) == 0 || inet_pton(AF_INET, ZSTR_VAL(addr), &ip) != 1) {
+        return 0;
+    }
+    return ntohl(ip.s_addr);
+#else
+    if (ZSTR_LEN(addr) == 0 || (ip = inet_addr(ZSTR_VAL(addr))) == INADDR_NONE) {
+        /* The only special case when we should return -1 ourselves,
+         * because inet_addr() considers it wrong. We return 0xFFFFFFFF and
+         * not -1 or ~0 because of 32/64bit issues. */
+        if (ZSTR_LEN(addr) == sizeof("255.255.255.255") - 1 &&
+            !memcmp(ZSTR_VAL(addr), "255.255.255.255", sizeof("255.255.255.255") - 1)
+        ) {
+            return 0xFFFFFFFF;
+        }
+        return 0;
+    }
+    return ntohl(ip);
+#endif
+
+}
+
+static zend_string *monip_gethostbyname(char *name)
 {
     struct hostent *hp;
     struct in_addr in;
-    
+    char *address;
+
     hp = gethostbyname(name);
-    
+
     if (!hp || !*(hp->h_addr_list)) {
-        return estrdup(name);
+        return zend_string_init(name, strlen(name), 0);
     }
-    
-    if(hp->h_addrtype != AF_INET){
-        return estrdup(name);
-    }
-    
+
     memcpy(&in.s_addr, *(hp->h_addr_list), sizeof(in.s_addr));
-    
-    return estrdup(inet_ntoa(in));
+
+    address = inet_ntoa(in);
+    return zend_string_init(address, strlen(address), 0);
 }
 
-static void monip_split(zval *return_value, char *str, uint str_len TSRMLS_DC){
+
+static void monip_split(zval *return_value, char *str, uint str_len){
     char *p1, *p2, *endp;
     
     array_init(return_value);
@@ -115,17 +143,17 @@ static void monip_split(zval *return_value, char *str, uint str_len TSRMLS_DC){
     p2 = php_memnstr(p1, ZEND_STRL("\t"), endp);
     
     if(p2 == NULL){
-        add_next_index_stringl(return_value, p1, str_len, 1);
+        add_next_index_stringl(return_value, p1, str_len);
     }else{
         do{
             if (p2 - p1 > 1) {
-                add_next_index_stringl(return_value, p1, (uint)(p2 - p1), 1);
+                add_next_index_stringl(return_value, p1, (uint)(p2 - p1));
             }
             p1 = p2 + 1;
         }while((p2 = php_memnstr(p1, ZEND_STRL("\t"), endp)) != NULL);
         
         if (p1 < endp){
-            add_next_index_stringl(return_value, p1, (uint)(endp-p1), 1);
+            add_next_index_stringl(return_value, p1, (uint)(endp-p1));
         }
     }
     
@@ -241,22 +269,20 @@ PHP_MINFO_FUNCTION(monip)
 
 
 PHP_METHOD(monip_ce, __construct){
-    char *ip_file;
-    uint ip_file_len;
+    zend_string *ip_db_file;
     uint offset, index_len;
     char *index;
-    zval *zindex;
-    zval *stream;
-    zval *cache;
     php_stream *f_stream;
+    zval c_stream, c_index, c_data;
+    zval *this_ptr = getThis();
     
-    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &ip_file, &ip_file_len) == FAILURE) {
+    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "S", &ip_db_file) == FAILURE) {
         RETURN_FALSE;
     }
     
-    f_stream = php_stream_open_wrapper(ip_file, "rb", USE_PATH | REPORT_ERRORS, NULL);
+    f_stream = php_stream_open_wrapper(ZSTR_VAL(ip_db_file), "rb", USE_PATH | REPORT_ERRORS, NULL);
     if (!f_stream) {
-        php_error(E_NOTICE, "Invalid 17monipdb.dat file!");
+        php_error_docref(NULL, E_ERROR, "Invalid 17monipdb.dat file [0]!");
         RETURN_FALSE;
     }
     
@@ -269,6 +295,7 @@ PHP_METHOD(monip_ce, __construct){
     
     if (offset < 4) {
         php_stream_close(f_stream);
+        php_error_docref(NULL, E_NOTICE, "Invalid 17monipdb.dat file [1]!");
         RETURN_FALSE;
     }
     
@@ -276,152 +303,162 @@ PHP_METHOD(monip_ce, __construct){
     //php_printf("%d", index_len);
     index = (char *)emalloc(sizeof(char) * index_len + 1);
     php_stream_read(f_stream, index, index_len);
-    index[index_len] = 0;
-    MAKE_STD_ZVAL(stream);
-    php_stream_to_zval(f_stream, stream);
+    index[index_len] = '\0';
     
-    MAKE_STD_ZVAL(zindex);
-    ZVAL_STRINGL(zindex, index, index_len, 1);
+    php_stream_to_zval(f_stream, &c_stream);
+    ZVAL_STRINGL(&c_index, index, index_len);
     
-    MAKE_STD_ZVAL(cache);
-    array_init(cache);
+    array_init(&c_data);
     
-    add_property_long(getThis(), "offset", offset);
-    add_property_zval_ex(getThis(), ZEND_STRS("index"), zindex TSRMLS_CC);
-    add_property_zval_ex(getThis(), ZEND_STRS("stream"), stream TSRMLS_CC);
-    add_property_zval_ex(getThis(), ZEND_STRS("cache"), cache TSRMLS_CC);
+    add_property_long(this_ptr, IP_PRO_NAME_OFFSET, offset);
+    add_property_zval(this_ptr, IP_PRO_NAME_INDEX, &c_index);
+    add_property_zval(this_ptr, IP_PRO_NAME_STREAM, &c_stream);
+    add_property_zval(this_ptr, IP_PRO_NAME_CACHE, &c_data);
     
     efree(index);
-    zval_ptr_dtor(&stream);
-    zval_ptr_dtor(&zindex);
-    zval_ptr_dtor(&cache);
+    
+    zval_ptr_dtor(&c_stream);
+    zval_ptr_dtor(&c_index);
+    zval_ptr_dtor(&c_data);
     
 }
 
 
 PHP_METHOD(monip_ce, __destruct){
-    zval * arg;
-    php_stream *f_stream;
+    zval *arg;
+    zval rv;
+    php_stream *stream = NULL;
+    zval *this_ptr = getThis();
     
-    arg = zend_read_property(monip_ce, getThis(), ZEND_STRL("stream"), 0 TSRMLS_CC);
-    if (IS_NULL != Z_TYPE_P(arg)) {
-        php_stream_from_zval_no_verify(f_stream, &arg);
-        if (f_stream != NULL) {
-            if ((f_stream->flags & PHP_STREAM_FLAG_NO_FCLOSE) != 0) {
-                php_error_docref(NULL TSRMLS_CC, E_WARNING, "%d is not a valid stream resource", f_stream->rsrc_id);
+    arg = zend_read_property(monip_ce, this_ptr, ZEND_STRL(IP_PRO_NAME_CACHE), 1, &rv);
+    if (Z_TYPE_P(arg) == IS_ARRAY) {
+        zend_hash_destroy(Z_ARR_P(arg));
+    }
+    
+    arg = zend_read_property(monip_ce, this_ptr, ZEND_STRL(IP_PRO_NAME_STREAM), 1, &rv);
+    if (Z_TYPE_P(arg) != IS_NULL) {
+        php_stream_from_zval_no_verify(stream, arg);
+        if (stream != NULL) {
+            if ((stream->flags & PHP_STREAM_FLAG_NO_FCLOSE) != 0) {
+                php_error_docref(NULL, E_WARNING, "this file is closed");
                 return;
             }
-            php_stream_close(f_stream);
+            php_stream_close(stream);
         }
     }
 }
 
 
 PHP_METHOD(monip_ce, find){
-    char *ipstr;
-    ulong ipstr_len;
-    
-    char *ip;
-    uint ip_len;
-    struct in_addr in;
-    uint ip_h;
-    
-    zval *p, *cache, **cache_val;
-    ulong offset;
-    char *index;
+    zend_string *ip_str;
+    zval rv;
+    zval *this_ptr = getThis();
+    zval *c_offset, *c_index, *c_stream, *c_data;
     php_stream *stream;
-    
-    char *ip_repeat, *tmp;
-    char *ip_dot;
-    
+    zend_string *ip;
+    zval *ip_cache, ip_val;
+    zend_long ip_idx = 0;
+    char *tmp;
+    char *ip_dot, *ip_cp;
     int tmp_offset = 0, start = 0;
-    uint index_offset = 0, index_length = 0, max_comp_len = 0;
-    
+    uint index_offset = 0, index_length = 0, max_comp_len = 0, is_offset = 0;
     char *location;
     
-    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &ipstr, &ipstr_len) == FAILURE) {
+    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "S", &ip_str) == FAILURE) {
         RETURN_NULL();
     }
     
-    if (ipstr_len < 1) {
+    if (ZSTR_LEN(ip_str) < 1) {
+        php_error_docref(NULL, E_NOTICE, "ip str length lg 1");
         RETURN_NULL();
     }
     
-    p = zend_read_property(monip_ce, getThis(), ZEND_STRL("offset"), 0 TSRMLS_CC);
-    //php_printf("%ld\n", Z_LVAL_P(p));
-    offset = Z_LVAL_P(p);
+    c_offset = zend_read_property(monip_ce, this_ptr, ZEND_STRL(IP_PRO_NAME_OFFSET), 0, &rv);
+    c_index = zend_read_property(monip_ce, this_ptr, ZEND_STRL(IP_PRO_NAME_INDEX), 0, &rv);
+    c_stream = zend_read_property(monip_ce, this_ptr, ZEND_STRL(IP_PRO_NAME_STREAM), 0, &rv);
+    c_data = zend_read_property(monip_ce, this_ptr, ZEND_STRL(IP_PRO_NAME_CACHE), 0, &rv);
     
-    p = zend_read_property(monip_ce, getThis(), ZEND_STRL("index"), 0 TSRMLS_CC);
-    index = Z_STRVAL_P(p);
+    php_stream_from_zval(stream, c_stream);
     
-    p = zend_read_property(monip_ce, getThis(), ZEND_STRL("stream"), 0 TSRMLS_CC);
-    php_stream_from_zval(stream, &p);
-    
-    cache = zend_read_property(monip_ce, getThis(), ZEND_STRL("cache"), 0 TSRMLS_CC);
-    
-    ip = monip_gethostbyname(ipstr);
-    ip_len = (uint)strlen(ip);
-    //php_printf("\n%s\n", ip);
-    if (inet_pton(AF_INET, ip, &in) != 1) {
-        efree(ip);
+    if (!stream) {
+        php_error_docref(NULL, E_WARNING, "ip stream get fail");
         RETURN_NULL();
     }
     
-    ip_h = ntohl(in.s_addr);
-    if(machine_little_endian){
-        ip_h = lb_reverse(ip_h);
-    }
-    
-    if (zend_hash_index_find(Z_ARRVAL_P(cache), ip_h, (void **)&cache_val) == SUCCESS) {
-        //php_printf("\ncahce find, type %d\n", Z_TYPE_PP(cache_val));
-        monip_split(return_value, Z_STRVAL_PP(cache_val), Z_STRLEN_PP(cache_val) TSRMLS_CC);
-        efree(ip);
+    ip = monip_gethostbyname(ZSTR_VAL(ip_str));
+    ip_cache = zend_hash_find(Z_ARR_P(c_data), ip);
+    if (ip_cache) {
+        if (MOINIP_DEBUG) {
+            php_error_docref(NULL, E_NOTICE, "debug: this ip find in cache");
+        }
+        zend_string_release(ip);
+        monip_split(return_value, Z_STRVAL_P(ip_cache), Z_STRLEN_P(ip_cache));
         return;
     }
+    ip_idx = monip_ip2long(ip);
+    if(machine_little_endian){
+        ip_idx = lb_reverse(ip_idx);
+    }
+    //php_printf("%ld\n", ip_idx);
     
-    ip_repeat = estrndup(ip, ip_len);
-    ip_dot = php_strtok_r(ip_repeat, ".", &tmp);
+    ip_cp = estrndup(ZSTR_VAL(ip), ZSTR_LEN(ip));
+    ip_dot = php_strtok_r(ip_cp, ".", &tmp);
     tmp_offset = atoi(ip_dot);
-    efree(ip_repeat);
-    
-    efree(ip);
+    efree(ip_cp);
     
     if (tmp_offset < 0 || tmp_offset > 255) {
+        zend_string_release(ip);
+        if (MOINIP_DEBUG) {
+            php_error_docref(NULL, E_WARNING, "debug: tmp offset num %d not in range", tmp_offset);
+        }
         RETURN_NULL();
     }
     tmp_offset *= 4;
     
-    max_comp_len = (uint)offset - 1024;
+    memcpy((void *)&start, (void *)Z_STRVAL_P(c_index) + tmp_offset, 4);
+    
+    max_comp_len = Z_LVAL_P(c_offset) - 1024 - 4;
+    
+    //php_printf("%ld -- %ld\n", start, max_comp_len);
     
     for(start = start * 8 + 1024; start < max_comp_len; start += 8){
         
-        if(memcmp(index + start, (char *)&ip_h, 4) >= 0){
-            memcpy(&index_offset, index + start + 4, 3);
+        if(memcmp(Z_STRVAL_P(c_index) + start, (char *)&ip_idx, 4) >= 0){
+            memcpy(&index_offset, Z_STRVAL_P(c_index) + start + 4, 3);
             if(!machine_little_endian){
                 index_offset = lb_reverse(index_offset);
             }
-            index_length = *(index + start + 7);
+            index_length = *(Z_STRVAL_P(c_index) + start + 7);
+            is_offset = 1;
             break;
         }
     }
     
-    if (index_offset < 1) {
-        RETURN_NULL();
+    if (!is_offset) {
+        zend_string_release(ip);
+        if (MOINIP_DEBUG) {
+            php_error_docref(NULL, E_NOTICE, "debug: index offset %d le 0", is_offset);
+        }
+        RETURN_FALSE;
     }
     
-    php_stream_seek(stream, offset + index_offset - 1024, SEEK_SET);
+    //php_printf("%d", index_offset);
+    
+    php_stream_seek(stream, Z_LVAL_P(c_offset) + index_offset - 1024, SEEK_SET);
     
     location = (char *) emalloc(sizeof(char) * index_length + 1);
     php_stream_read(stream, location, index_length);
-    location[index_length] = 0;
+    location[index_length] = '\0';
     
-    MAKE_STD_ZVAL(p);
-    ZVAL_STRINGL(p, location, index_length, 1);
-    zend_hash_index_update(Z_ARRVAL_P(cache), ip_h, &p, sizeof(zval *), NULL);
+    ZVAL_STRINGL(&ip_val, location, index_length);
+    Z_TRY_ADDREF(ip_val);
+    zend_hash_update(Z_ARRVAL_P(c_data), ip, &ip_val);
     
-    monip_split(return_value, location, index_length TSRMLS_CC);
+    monip_split(return_value, location, index_length);
     
     efree(location);
+    zend_string_release(ip);
+    zval_ptr_dtor(&ip_val);
     
     return;
 }
