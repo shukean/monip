@@ -5,24 +5,31 @@ monip
 
 采用了monip内置类支持IP与位置的对应.  
 
-#install
+##install
 git clone https://github.com/shukean/monip.git  
 ./configue --with-php-config=your_php_config_path  
 make && make install  
 
-#demo
+##php.ini
+1. monip.cache_enable  
+开启php进程缓存功能，request间可以重复利用。默认为request缓存。 设置On ／ 1 开启该功能。  
 
-$monip = new monip('ip_data_file');  
-$location = $monip->find('www.baidu.com');  
-if($location){  
-  var_dump($location);      //array  
-}else{  
-  var_dump($location);      // NULL  
-}  
+2. monip.cache_expire_time  
+开启cache_enable后，设置数据的有效期，单位为秒。默认为0， 永久有效。  
 
-Array  
-(  
-    [0] => 中国  
-    [1] => 北京  
-    [2] => 北京  
-)  
+3. monip.default_ipdata_file  
+设置默认IP数据文件的位置。  当构造函数的参数为空时，使用此值。   
+
+
+##class
+```$ip = new Yk\Ip();```
+or  
+```$ip = new monip();```  
+
+
+##func
+
+```$ret_arr = $ip->find('beequick.cn');```
+
+
+
