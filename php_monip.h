@@ -39,6 +39,7 @@ extern zend_module_entry monip_module_entry;
 #endif
 
 #define MOINIP_DEBUG 1
+
 #define MONIP_CACHE_DATA_PER_NAME "monip_cache_data_persistent_name"
 
 #define IP_PRO_NAME_OFFSET "offset"

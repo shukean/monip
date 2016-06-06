@@ -266,7 +266,6 @@ PHP_MINIT_FUNCTION(monip)
 
 		res_key = zend_string_init(MONIP_CACHE_DATA_PER_NAME, sizeof(MONIP_CACHE_DATA_PER_NAME) - 1, 0);
 		zend_hash_update_mem(&EG(persistent_list), res_key, (void *)&res, sizeof(res));
-
 	}
 
 	return SUCCESS;
