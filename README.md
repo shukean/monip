@@ -7,6 +7,7 @@ monip
 
 ##install
 git clone https://github.com/shukean/monip.git  
+./phpize   
 ./configue --with-php-config=your_php_config_path  
 make && make install  
 
