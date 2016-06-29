@@ -240,33 +240,8 @@ PHP_MINIT_FUNCTION(monip)
 	REGISTER_INI_ENTRIES();
 
 	if (MONIP_G(cache_enable)){
-		zend_resource res;
-		zend_string *res_key;
-        monip_ipdata *ipdata;
-        HashTable *cache_ht;
-        HashTable *cache_expire_time_ht;
-
 		le_monip_cache_ipdata_p = zend_register_list_destructors_ex(NULL, php_monip_cache_ipdata_res_dtor, LE_MONIP_CACHE_IPDATA_NAME, module_number);
-
-        ipdata = pemalloc(sizeof(ipdata), 1);
-
-        cache_ht = (HashTable *) pemalloc(sizeof(HashTable), 1);
-		zend_hash_init(cache_ht, 64, NULL, ZVAL_PTR_DTOR, 1);
-
-        ipdata->cache = cache_ht;
-
-        if (MONIP_G(cache_expire_time)){
-            cache_expire_time_ht = (HashTable *) pemalloc(sizeof(HashTable), 1);
-            zend_hash_init(cache_expire_time_ht, 64, NULL, ZVAL_PTR_DTOR, 1);
-            ipdata->cache_expire_time = cache_expire_time_ht;
-        }
-
-        res.type = le_monip_cache_ipdata_p;
-        res.ptr = ipdata;
-
-		res_key = zend_string_init(MONIP_CACHE_DATA_PER_NAME, sizeof(MONIP_CACHE_DATA_PER_NAME) - 1, 0);
-		zend_hash_update_mem(&EG(persistent_list), res_key, (void *)&res, sizeof(res));
-	}
+    }
 
 	return SUCCESS;
 }
@@ -375,7 +350,36 @@ PHP_METHOD(monip_ce, __construct){
 		array_init(&c_data);
 		add_property_zval(this_ptr, IP_PRO_NAME_CACHE, &c_data);
 		zval_ptr_dtor(&c_data);
-	}
+    }else{
+        if (zend_hash_str_find_ptr(&EG(persistent_list), MONIP_CACHE_DATA_PER_NAME, sizeof(MONIP_CACHE_DATA_PER_NAME)-1) == NULL) {
+            zend_resource res;
+            zend_string *res_key;
+            monip_ipdata *ipdata;
+            HashTable *cache_ht;
+            HashTable *cache_expire_time_ht;
+            
+            ipdata = pemalloc(sizeof(ipdata), 1);
+            
+            cache_ht = (HashTable *) pemalloc(sizeof(HashTable), 1);
+            zend_hash_init(cache_ht, 64, NULL, ZVAL_PTR_DTOR, 1);
+            
+            ipdata->cache = cache_ht;
+            
+            if (MONIP_G(cache_expire_time)){
+                cache_expire_time_ht = (HashTable *) pemalloc(sizeof(HashTable), 1);
+                zend_hash_init(cache_expire_time_ht, 64, NULL, ZVAL_PTR_DTOR, 1);
+                ipdata->cache_expire_time = cache_expire_time_ht;
+            }
+            
+            res.type = le_monip_cache_ipdata_p;
+            res.ptr = ipdata;
+            
+            res_key = zend_string_init(MONIP_CACHE_DATA_PER_NAME, sizeof(MONIP_CACHE_DATA_PER_NAME) - 1, 1);
+            if (zend_hash_update_mem(&EG(persistent_list), res_key, (void *)&res, sizeof(res)) == NULL) {
+                php_error_docref(NULL, E_ERROR, "Register list fail");
+            }
+        }
+    }
 
     efree(index);
     zval_ptr_dtor(&c_stream);
