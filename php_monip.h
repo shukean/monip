@@ -47,6 +47,8 @@ extern zend_module_entry monip_module_entry;
 #define IP_PRO_NAME_STREAM "stream"
 #define IP_PRO_NAME_CACHE "cache"
 
+#define IP_PRO_NAME_RETVAL_TYPE "retval_type"
+
 
 PHP_MINIT_FUNCTION(monip);
 PHP_MSHUTDOWN_FUNCTION(monip);
@@ -69,7 +71,8 @@ typedef struct {
 ZEND_BEGIN_MODULE_GLOBALS(monip)
 	zend_bool  debug;
 	zend_bool  cache_enable;
-	long  cache_expire_time;
+    zend_bool  file_type;
+	zend_long  cache_expire_time;
 	char *default_ipdata_file;
 ZEND_END_MODULE_GLOBALS(monip)
 
