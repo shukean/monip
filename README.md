@@ -26,7 +26,7 @@ make && make install
 
 
 ##Other   
-1.构造函数现在支持3个参数:   
+1. 构造函数现在支持3个参数:   
 (string ip_file, bool file_type, bool retval_type)   
 ip_file: 数据文件   
 file_type:  文件格式   
