@@ -1,10 +1,10 @@
 --TEST--
-Check for monip presence
+Check for ipip presence
 --SKIPIF--
-<?php if (!extension_loaded("monip")) print "skip"; ?>
+<?php if (!extension_loaded("ipip")) print "skip"; ?>
 --FILE--
 <?php 
-echo "monip extension is available";
+echo "ipip extension is available";
 /*
 	you can add regression tests for your extension here
 
@@ -13,9 +13,9 @@ echo "monip extension is available";
   to pass, differences between the output and the
   expected text are interpreted as failure
 
-	see php5/README.TESTING for further information on
+	see php7/README.TESTING for further information on
   writing regression tests
 */
 ?>
 --EXPECT--
-monip extension is available
+ipip extension is available
