@@ -2,12 +2,12 @@
 // vim:ft=javascript
 
 // If your extension references something external, use ARG_WITH
-// ARG_WITH("monip", "for monip support", "no");
+// ARG_WITH("ipip", "for ipip support", "no");
 
 // Otherwise, use ARG_ENABLE
-// ARG_ENABLE("monip", "enable monip support", "no");
+// ARG_ENABLE("ipip", "enable ipip support", "no");
 
-if (PHP_MONIP != "no") {
-	EXTENSION("monip", "monip.c");
+if (PHP_IPIP != "no") {
+	EXTENSION("ipip", "ipip.c");
 }
 
