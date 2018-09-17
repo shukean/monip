@@ -1,10 +1,10 @@
 ## ipip  
 A php 5.x c module extension for search ip address.  
-**warning**
+**warning**  
 Only support datx format data file, because dat format is give up by [IPIP](https://en.ipip.net/?origin=CN)  
 
 ## design 
-Load datx file data in memory on this module started (PHP_MINIT_FUNCTIO),  
+Load datx file data in memory on this module started (PHP_MINIT_FUNCTION),  
 lookup ip address base on memory cache buf, so very quickly.  
 ### random test 10000 times  
 Used low than 25ms on php-fpm mode (data is loaded)  

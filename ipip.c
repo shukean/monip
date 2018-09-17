@@ -55,12 +55,12 @@ PHP_INI_END()
 
 static void ipip_split(zval *return_value, const char *str, uint str_len TSRMLS_DC) {
     char *p1, *p2, *endp;
-    
+
     array_init(return_value);
-    endp = str + str_len;		//end of ip_addr
+    endp = str + str_len;       //end of ip_addr
     p1 = str;
     p2 = php_memnstr(p1, ZEND_STRL("\t"), endp);
-    
+
     if (p2 == NULL) {
         add_next_index_stringl(return_value, p1, str_len, 1);
     } else {
@@ -70,7 +70,7 @@ static void ipip_split(zval *return_value, const char *str, uint str_len TSRMLS_
             }
             p1 = p2 + 1;
         } while ((p2 = php_memnstr(p1, ZEND_STRL("\t"), endp)) != NULL);
-        
+
         if (p1 < endp) {
             add_next_index_stringl(return_value, p1, (uint)(endp-p1), 1);
         }
@@ -85,14 +85,14 @@ static bool ip_find(const char *ip_str, zval *rsp TSRMLS_DC) {
     uint32_t ips[4];
     int n = sscanf(ip_str, "%d.%d.%d.%d", &ips[0], &ips[1], &ips[2], &ips[3]);
     if (n != 4) {
-        php_error(E_WARNING, "Invalid ip value!"); 
+        php_error(E_WARNING, "Invalid ip value!");
         return false;
     }
     if (ips[0] > 256 || ips[1] > 256 | ips[2] > 256 | ips[3] > 256) {
         php_error(E_NOTICE, "INvalid ip!");
         return false;
     }
-	
+
     uint32_t nip2 = B2L(ips);   // ip2long
     uint32_t pre_offset = (nip2 >> 16) * 4;
     uint32_t start = L2B(datx_index + pre_offset);
@@ -123,13 +123,13 @@ PHP_FUNCTION(ipip_find){
     ulong ipstr_len;
 
     if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &ipstr, &ipstr_len) == FAILURE){
-		RETURN_FALSE;
-	}
+        RETURN_FALSE;
+    }
 
     if (ipstr_len < 1) {
         RETURN_NULL();
-    }   
-	
+    }
+
     bool ret = ip_find(ipstr, return_value TSRMLS_CC);
     if (!ret) {
         RETURN_FALSE;
@@ -140,7 +140,7 @@ PHP_FUNCTION(ipip_find){
 
 /* {{{ calss ipip */
 PHP_METHOD(ipip_ce, __construct){
-    // nothing 
+    // nothing
 }
 
 
@@ -151,11 +151,11 @@ PHP_METHOD(ipip_ce, __destruct){
 PHP_METHOD(ipip_ce, find){
     char *ipstr;
     ulong ipstr_len;
-    
+
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &ipstr, &ipstr_len) == FAILURE) {
         RETURN_NULL();
     }
-    
+
     if (ipstr_len < 1) {
         RETURN_NULL();
     }
@@ -174,9 +174,9 @@ const zend_function_entry ipip_methods[] = {
 };
 /* }}} */
 
-/* The previous line is meant for vim and emacs, so it can correctly fold and 
-   unfold functions in source code. See the corresponding marks just before 
-   function definition, where the functions purpose is also documented. Please 
+/* The previous line is meant for vim and emacs, so it can correctly fold and
+   unfold functions in source code. See the corresponding marks just before
+   function definition, where the functions purpose is also documented. Please
    follow this convention for the convenience of others editing your code.
 */
 
@@ -185,7 +185,7 @@ const zend_function_entry ipip_methods[] = {
  */
 static void php_ipip_init_globals(zend_ipip_globals *ipip_globals)
 {
-	ipip_globals->datx_file = NULL;
+    ipip_globals->datx_file = NULL;
 }
 /* }}} */
 
@@ -193,54 +193,54 @@ static void php_ipip_init_globals(zend_ipip_globals *ipip_globals)
  */
 PHP_MINIT_FUNCTION(ipip)
 {
-	zend_class_entry ce;
+    zend_class_entry ce;
 
-	REGISTER_INI_ENTRIES();
+    REGISTER_INI_ENTRIES();
 
-	INIT_CLASS_ENTRY(ce, "ipip", ipip_methods);
+    INIT_CLASS_ENTRY(ce, "ipip", ipip_methods);
     ipip_ce = zend_register_internal_class(&ce TSRMLS_CC);
 
-	if (!IPIP_G(datx_file)) {
-		goto out;
-	}
-	if (UNEXPECTED(DEUBG)) {
-		printf("default ipip datx file path %s\n", IPIP_G(datx_file));
-	}
-	int fd = open(IPIP_G(datx_file), O_RDONLY);
+    if (!IPIP_G(datx_file)) {
+        goto out;
+    }
+    if (UNEXPECTED(DEUBG)) {
+        printf("default ipip datx file path %s\n", IPIP_G(datx_file));
+    }
+    int fd = open(IPIP_G(datx_file), O_RDONLY);
     if (!fd) {
         php_error(E_ERROR, "failed open default ipip datx file");
         goto out;
     }
     datx_buf_len = 0;
     datx_buf = pemalloc(4096, 1);
-	while (true) {
-		size_t len_read = read(fd, (void *)(datx_buf + datx_buf_len), 4096);
-		if (len_read > 0) {
-			datx_buf_len += len_read;
+    while (true) {
+        size_t len_read = read(fd, (void *)(datx_buf + datx_buf_len), 4096);
+        if (len_read > 0) {
+            datx_buf_len += len_read;
             datx_buf = perealloc(datx_buf, datx_buf_len + 4096, 1);
-		} else if (len_read == 0) {
-			break;
-		} else {
-			php_error(E_WARNING, "failed load ipip datx file");
-			datx_buf_len = 0;
-			goto out;
-		}
-	}
-	if (UNEXPECTED(DEUBG)) {
-		printf("load datx file, size %ld\n", datx_buf_len);
-	}
-   
+        } else if (len_read == 0) {
+            break;
+        } else {
+            php_error(E_WARNING, "failed load ipip datx file");
+            datx_buf_len = 0;
+            goto out;
+        }
+    }
+    if (UNEXPECTED(DEUBG)) {
+        printf("load datx file, size %ld\n", datx_buf_len);
+    }
+
     datx_offset = B2L(datx_buf);
-	if (UNEXPECTED(DEUBG)) {
-		printf("datx offset is %d\n", datx_offset);
-	}
+    if (UNEXPECTED(DEUBG)) {
+        printf("datx offset is %d\n", datx_offset);
+    }
     if (datx_offset >= 4) {
         datx_index_len = datx_offset - 4;
-		datx_index = datx_buf + 4;
+        datx_index = datx_buf + 4;
     }
-	close(fd);
+    close(fd);
 out:
-	return SUCCESS;
+    return SUCCESS;
 }
 /* }}} */
 
@@ -248,13 +248,13 @@ out:
  */
 PHP_MSHUTDOWN_FUNCTION(ipip)
 {
-	UNREGISTER_INI_ENTRIES();
-	if (datx_buf) {
-		pefree(datx_buf, 1);
-	}
-	datx_buf = NULL;
-	datx_index = NULL;
-	return SUCCESS;
+    UNREGISTER_INI_ENTRIES();
+    if (datx_buf) {
+        pefree(datx_buf, 1);
+    }
+    datx_buf = NULL;
+    datx_index = NULL;
+    return SUCCESS;
 }
 /* }}} */
 
@@ -263,7 +263,7 @@ PHP_MSHUTDOWN_FUNCTION(ipip)
  */
 PHP_RINIT_FUNCTION(ipip)
 {
-	return SUCCESS;
+    return SUCCESS;
 }
 /* }}} */
 
@@ -272,7 +272,7 @@ PHP_RINIT_FUNCTION(ipip)
  */
 PHP_RSHUTDOWN_FUNCTION(ipip)
 {
-	return SUCCESS;
+    return SUCCESS;
 }
 /* }}} */
 
@@ -280,11 +280,11 @@ PHP_RSHUTDOWN_FUNCTION(ipip)
  */
 PHP_MINFO_FUNCTION(ipip)
 {
-	php_info_print_table_start();
-	php_info_print_table_header(2, "ipip support", "enabled");
-	php_info_print_table_end();
+    php_info_print_table_start();
+    php_info_print_table_header(2, "ipip support", "enabled");
+    php_info_print_table_end();
 
-	DISPLAY_INI_ENTRIES();
+    DISPLAY_INI_ENTRIES();
 }
 /* }}} */
 
@@ -294,28 +294,28 @@ PHP_MINFO_FUNCTION(ipip)
  */
 
 ZEND_BEGIN_ARG_INFO(arginfo_ipip_find, ZEND_SEND_BY_VAL)
-	ZEND_ARG_INFO(0, ip_str)
+    ZEND_ARG_INFO(0, ip_str)
 ZEND_END_ARG_INFO()
 
 const zend_function_entry ipip_functions[] = {
-	PHP_FE(ipip_find,	arginfo_ipip_find)		/* For testing, remove later. */
-	PHP_FE_END	/* Must be the last line in ipip_functions[] */
+    PHP_FE(ipip_find,   arginfo_ipip_find)      /* For testing, remove later. */
+    PHP_FE_END  /* Must be the last line in ipip_functions[] */
 };
 /* }}} */
 
 /* {{{ ipip_module_entry
  */
 zend_module_entry ipip_module_entry = {
-	STANDARD_MODULE_HEADER,
-	"ipip",
-	ipip_functions,
-	PHP_MINIT(ipip),
-	PHP_MSHUTDOWN(ipip),
-	PHP_RINIT(ipip),		/* Replace with NULL if there's nothing to do at request start */
-	PHP_RSHUTDOWN(ipip),	/* Replace with NULL if there's nothing to do at request end */
-	PHP_MINFO(ipip),
-	PHP_IPIP_VERSION,
-	STANDARD_MODULE_PROPERTIES
+    STANDARD_MODULE_HEADER,
+    "ipip",
+    ipip_functions,
+    PHP_MINIT(ipip),
+    PHP_MSHUTDOWN(ipip),
+    PHP_RINIT(ipip),        /* Replace with NULL if there's nothing to do at request start */
+    PHP_RSHUTDOWN(ipip),    /* Replace with NULL if there's nothing to do at request end */
+    PHP_MINFO(ipip),
+    PHP_IPIP_VERSION,
+    STANDARD_MODULE_PROPERTIES
 };
 /* }}} */
 
